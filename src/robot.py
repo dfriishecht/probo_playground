@@ -5,6 +5,9 @@ The Robot class models the robotic agent that explores the world. The robot is r
 """
 
 import random
+import pandas as pd
+import sensors
+import math
 from utils import floating_mod_zero
 from environment import Environment
 from sensors import SensorInterface
@@ -28,6 +31,10 @@ class Robot:
         """
         self.env = env
         self.sensors = [sensors.WheelEncoder(self), sensors.LandmarkPinger(self)]
+        self.real_lin_vel = 0
+        self.real_ang_vel = 0
+        self.cmd_lin_vel = 0
+        self.cmd_ang_vel = 0
 
     def robot_step_differential(self, lin_vel: float, ang_vel: float):
         """
@@ -107,4 +114,16 @@ class Robot:
 
         return measurements
 
+    def take_gt_snapshot(self) -> pd.DataFrame:
+        """
+        Return timestep-specific GT data for CSV logging.
+        """
+        # grab env data: time, robot pose, gt to landmarks
+        env_data = self.env.take_state_snapshot()
+
+        # add in actual, imperfect velocity commands
+        env_data["Actual_LinearVelocity"] = self.real_lin_vel
+        env_data["Actual_AngularVelocity"] = self.real_ang_vel
+
+        return env_data
             
