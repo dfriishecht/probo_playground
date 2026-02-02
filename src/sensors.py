@@ -9,6 +9,7 @@ Proprioceptive sensors measure the robot's relationship to its past states. This
 """
 
 from abc import ABC, abstractmethod
+import math
 from math import pi
 import random
 
@@ -172,15 +173,26 @@ class LandmarkPinger(SensorInterface):
             interval (float): period between measurements
         """
         super().__init__(name, robot, interval)
-        # TODO: save max range and all noise constants as properties
-        self.MAX_RANGE = None  # meters
-        self.RANGE_NOISE = None  # meters
-        self.RANGE_PROP_NOISE = None
-        self.BEARING_NOISE = None  # radians
+        self.MAX_RANGE = max_range  # meters
+        self.RANGE_NOISE = range_noise  # meters
+        self.RANGE_PROP_NOISE = range_prop_noise
+        self.BEARING_NOISE = bearing_noise  # radians
 
     def sample(self):
         """
         Reports noisy measurements of the bearing and range between the robot and all nearby landmarks.
         """
-        # TODO: fill in the function
-        pass
+        true_distances = self.env.get_proximity_to_landmarks()
+        noisy_landmarks = pd.DataFrame()
+        for id, landmark in true_distances.items():
+            gt_bearing = landmark
+            if gt_bearing.range <= self.MAX_RANGE:
+                bearing_noisy = BearingRange(
+                    random.gauss(gt_bearing.bearing, self.BEARING_NOISE),
+                    random.gauss(gt_bearing.range, self.RANGE_NOISE + self.RANGE_PROP_NOISE * gt_bearing.range),
+                )
+            else:
+                bearing_noisy = BearingRange(math.inf, math.inf)
+            noisy_landmarks[f"{self.name}_{id}"] = [bearing_noisy]
+        return noisy_landmarks
+                
