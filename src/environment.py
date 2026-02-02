@@ -5,7 +5,7 @@ The Environment class models the world that the robots navigate in. The world is
 
 Critically, the environment tracks the robot's state. In this case, the robot's state is a vector that includes three state variables: x position, y position, and heading.
 """
-
+import math
 from utils import Position, Pose, Bounds, Landmark, BearingRange
 
 
@@ -96,12 +96,20 @@ class Environment:
         # TODO: fill in the function
         pass
 
-    def get_proximity_to_landmarks(self):
+    def get_proximity_to_landmarks(self) -> dict:
         """
         Return a list of the robot's true range and bearing to all landmarks.
         """
-        # TODO: fill in the function
-        pass
+        measurements = {}
+        for landmark in self.LANDMARKS:
+            x_diff = landmark.pos.x - self.robot_pose.pos.x
+            y_diff = landmark.pos.y - self.robot_pose.pos.y
+            distance = math.sqrt(x_diff**2+y_diff**2)
+            bearing = math.atan2(y_diff, x_diff) - self.robot_pose.theta
+            bearing = (bearing + math.pi) % (2 * math.pi) - math.pi
+            measurements[landmark.id] = BearingRange(landmark_id=landmark.id,
+                                                     bearing=bearing,range=distance)
+        return measurements
 
     def take_state_snapshot(self):
         """
