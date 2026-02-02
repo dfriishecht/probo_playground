@@ -10,7 +10,9 @@ Proprioceptive sensors measure the robot's relationship to its past states. This
 
 from abc import ABC, abstractmethod
 from math import pi
+import random
 
+import pandas as pd
 
 class SensorInterface(ABC):
     """
@@ -106,16 +108,35 @@ class WheelEncoder(SensorInterface):
             angular_noise_ratio: proportional noise for angular
         """
         super().__init__(name, robot, interval)
-        # TODO: save all noise constants as properties
-        self.LIN_NOISE = None  # m/s
-        self.ANG_NOISE = None  # rad/s
+        self.robot = robot
+        self.name = name
+        self.interval = interval
+        self.LIN_NOISE = lin_noise  # m/s
+        self.ANG_NOISE = ang_noise  # rad/s
+        self.LIN_NOISE_PROPORTION = 0.01
+        self.ANG_NOISE_PROPORTION = 0.1
 
     def sample(self):
         """
         Sample the robot's linear and angular velocity.
         """
-        # TODO: fill in the function
-        pass
+        last_lin_vel = self.robot.real_lin_vel
+        last_ang_vel = self.robot.real_ang_vel
+
+        noisy_lin_vel = random.gauss(
+            last_lin_vel, self.LIN_NOISE + abs(last_lin_vel) * self.LIN_NOISE_PROPORTION
+        )
+        noisy_ang_vel = random.gauss(
+            last_ang_vel, self.ANG_NOISE + abs(last_ang_vel) * self.ANG_NOISE_PROPORTION
+        )
+        
+        return pd.DataFrame(
+            {
+                f"{self.name}_LinearVelocity": [noisy_lin_vel],
+                f"{self.name}_AngularVelocity": [noisy_ang_vel],
+            }
+        )
+
 
 
 class LandmarkPinger(SensorInterface):
