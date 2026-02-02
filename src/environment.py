@@ -144,7 +144,7 @@ class Environment:
         landmark_dist = self.get_proximity_to_landmarks()
         landmark_df = pd.DataFrame()
         for id, landmark in landmark_dist.items():
-            landmark_df[id] = landmark
+            landmark_df[id] = [landmark]
         
         return pd.merge(
             instrinsic_df,
