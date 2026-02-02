@@ -58,8 +58,14 @@ class Environment:
         Returns:
             Nothing, but update the robot_pose property at the end
         """
-        # TODO: fill in the function
-        pass
+        dx, dy = self.is_valid_motion(dx, dy)
+        new_pos = Position(dx, dy)
+
+        new_theta = self.robot_pose.theta + dtheta
+        new_theta = (new_theta + math.pi) % (2 * math.pi) - math.pi
+
+        self.time += round(self.DT, 3)
+        self.robot_pose = Pose(new_pos, new_theta)
 
     def is_valid_motion(self, dx: float, dy: float):
         """
