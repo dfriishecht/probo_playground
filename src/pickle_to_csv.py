@@ -1,7 +1,4 @@
 import pickle
-import csv
-import sys
-import utils
 
 pickle_file_path = '../output/sensor_data.pkl'
 csv_file_path = '../output/sensor_data.csv'
