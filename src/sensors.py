@@ -13,6 +13,7 @@ import math
 from math import pi
 import random
 
+from utils import BearingRange
 import pandas as pd
 
 class SensorInterface(ABC):
@@ -182,17 +183,17 @@ class LandmarkPinger(SensorInterface):
         """
         Reports noisy measurements of the bearing and range between the robot and all nearby landmarks.
         """
-        true_distances = self.env.get_proximity_to_landmarks()
+        true_distances = self.robot.env.get_proximity_to_landmarks()
         noisy_landmarks = pd.DataFrame()
         for id, landmark in true_distances.items():
             gt_bearing = landmark
             if gt_bearing.range <= self.MAX_RANGE:
-                bearing_noisy = BearingRange(
+                bearing_noisy = BearingRange(id,
                     random.gauss(gt_bearing.bearing, self.BEARING_NOISE),
                     random.gauss(gt_bearing.range, self.RANGE_NOISE + self.RANGE_PROP_NOISE * gt_bearing.range),
                 )
             else:
-                bearing_noisy = BearingRange(math.inf, math.inf)
+                bearing_noisy = BearingRange(id, math.inf, math.inf)
             noisy_landmarks[f"{self.name}_{id}"] = [bearing_noisy]
         return noisy_landmarks
                 
