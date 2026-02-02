@@ -60,8 +60,7 @@ class Environment:
         Returns:
             Nothing, but update the robot_pose property at the end
         """
-        dx, dy = self.is_valid_motion(dx, dy)
-        new_pos = Position(dx, dy)
+        new_pos = self.is_valid_motion(dx, dy)
 
         new_theta = self.robot_pose.theta + dtheta
         new_theta = (new_theta + math.pi) % (2 * math.pi) - math.pi
