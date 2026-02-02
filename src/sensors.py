@@ -110,9 +110,6 @@ class WheelEncoder(SensorInterface):
             angular_noise_ratio: proportional noise for angular
         """
         super().__init__(name, robot, interval)
-        self.robot = robot
-        self.name = name
-        self.interval = interval
         self.LIN_NOISE = lin_noise  # m/s
         self.ANG_NOISE = ang_noise  # rad/s
         self.LIN_NOISE_PROPORTION = 0.01
