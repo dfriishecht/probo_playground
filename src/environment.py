@@ -81,15 +81,15 @@ class Environment:
             dx: change in x position that should be executed
             dy: change in y position that should be executed
         """
-        if self.is_valid_position(Position(self.robot_pose.x + dx, self.robot_pose.y)):
-            x_new = self.robot_pose.x + dx
+        if self.is_valid_position(Position(self.robot_pose.pos.x + dx, self.robot_pose.pos.y)):
+            x_new = self.robot_pose.pos.x + dx
         else:
-            x_new = self.robot_pose.x
+            x_new = self.robot_pose.pos.x
 
-        if self.is_valid_position(Position(self.robot_pose.y + dy, self.robot_pose.x)):
-            y_new = self.robot_pose.y + dy
+        if self.is_valid_position(Position(self.robot_pose.pos.x, self.robot_pose.pos.y + dy)):
+            y_new = self.robot_pose.pos.y + dy
         else:
-            y_new = self.robot_pose.y
+            y_new = self.robot_pose.pos.y
 
         return Position(x_new, y_new)
 
