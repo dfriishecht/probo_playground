@@ -71,7 +71,6 @@ if __name__ == "__main__":
                 ],
                 ignore_index=True
             )
-            # TODO: take sensor measurements and add it to the history
             sensor_data_history = pd.concat(
                 [
                     sensor_data_history,
@@ -79,7 +78,6 @@ if __name__ == "__main__":
                 ],
                 ignore_index=True
             )
-            # TODO: retrieve the next motor command from the input file
             if round(float(next_cmd[0]), 3) <= env.DT * step and not terminal:
                 current_lin_vel = float(next_cmd[1])
                 current_ang_vel = float(next_cmd[2])
@@ -88,7 +86,6 @@ if __name__ == "__main__":
                 except StopIteration:
                     terminal = True
 
-            # TODO: execute the motor command
             robot.robot_step_differential(current_lin_vel, current_ang_vel)
         
         pickle.dump(
