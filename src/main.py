@@ -8,12 +8,24 @@ from utils import Position, Pose, Landmark, Bounds
 
 if __name__ == "__main__":
     # set up the environment
-    # TODO: choose values for each input parameter, using the expected datatype
-    dimensions = None
-    dt = None
-    obstacles = []
-    landmarks = []
-    initial_robot_pose = None
+    dimensions = Bounds(
+        0,
+        10,
+        0,
+        10
+    )
+
+    dt = 0.1
+    obstacles = [
+        Bounds(5, 7, 5, 7),
+        Bounds(0, 4, 6, 8),
+    ]
+    landmarks = [
+        Landmark(Position(2.0, 2.0), 0),
+        Landmark(Position(5.0, 5.0), 1),
+        Landmark(Position(8.0, 8.0), 2),
+    ]
+    initial_robot_pose = Pose(Position(0,0), 0.6)
 
     env = Environment(
         dimensions,
@@ -27,8 +39,7 @@ if __name__ == "__main__":
     robot = Robot(env)
 
     # set up timekeeping
-    # TODO: set the total_seconds variable to however long you want the simulator to run (not real-time!)
-    total_seconds = None
+    total_seconds = 20
     total_timesteps = total_seconds / env.DT
 
     # set up logging
