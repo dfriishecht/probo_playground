@@ -5,7 +5,7 @@ The Robot class models the robotic agent that explores the world. The robot is r
 """
 
 import random
-
+from utils import floating_mod_zero
 from environment import Environment
 from sensors import SensorInterface
 
@@ -27,7 +27,7 @@ class Robot:
             env: the environment this robot is operating in
         """
         self.env = env
-        self.sensors = []
+        self.sensors = [sensors.WheelEncoder, sensors.LandmarkPinger]
 
     def robot_step_differential(self, lin_vel: float, ang_vel: float):
         """
@@ -70,8 +70,6 @@ class Robot:
         # step environment
         self.env.robot_step(dx, dy, dtheta)
 
-        
-
     def robot_step_translational(self, x_vel: float, y_vel: float, ang_vel: float):
         """
         Swerve-drive mode. Given x, y, and angular velocities, determine the robot's change in x, y, and heading and apply those changes in the environment.
@@ -95,5 +93,18 @@ class Robot:
         """
         Return noisy sensor readings of the environment at this timestep, including data from all sensors, in a table format.
         """
-        # TODO: fill in the function
-        pass
+        measurements = pd.DataFrame({"Time": {self.env.time}})
+        for sensor in self.sensors:
+            if floating_mod_zero(self.env.time, self.sensor.interval):
+                measurements = pd.merge(
+                    measurements,
+                    sensor.sample(),
+                    left_index=True,
+                    right_index=True
+                )
+        measurements["CMD_LinearVelocity"] = [self.cmd_lin_vel]
+        measurements["CMD_AngularVelocity"] = [self.cmd_lin_vel]
+
+        return measurements
+
+            
