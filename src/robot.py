@@ -8,7 +8,7 @@ import random
 import pandas as pd
 import sensors
 import math
-from utils import floating_mod_zero
+from utils import floating_mod_zero, NEAR_ZERO
 from environment import Environment
 from sensors import SensorInterface
 
@@ -59,7 +59,7 @@ class Robot:
         self.real_ang_vel = ang_vel
 
         # moving in straight line
-        if abs(ang_vel) < 1e-6: #Note: move to config file?
+        if abs(ang_vel) < NEAR_ZERO: #Note: move to config file?
             dx = lin_vel * self.env.DT * math.cos(self.env.robot_pose.theta)
             dy = lin_vel * self.env.DT * math.sin(self.env.robot_pose.theta)
             dtheta = 0
