@@ -42,8 +42,35 @@ class Robot:
             dy: change in y position
             d-theta: change in heading
         """
-        # TODO: fill in the function
-        pass
+        self.cmd_lin_vel = lin_vel
+        self.cmd_ang_vel = ang_vel
+
+        lin_vel = lin_vel * (1 + random.gauss(0, 0.03)) #Note: Move this into a config file
+        ang_vel = ang_vel * (1 + random.gauss(0, 0.05))
+        
+        self.real_lin_vel = lin_vel
+        self.real_ang_vel = ang_vel
+
+        # moving in straight line
+        if abs(ang_vel) < 1e-6: #Note: move to config file?
+            dx = lin_vel * self.env.DT * math.cos(self.env.robot_pose.theta)
+            dy = lin_vel * self.env.DT * math.cos(self.env.robot_pose.theta)
+            dtheta = 0
+        else:
+            r = lin_vel / ang_vel
+            dtheta = ang_vel * self.env.DT
+            dx = r * (
+                math.sin(self.env.robot_pose.theta + dtheta)
+                - math.sin(self.env.robot_pose.theta)
+            )
+            dy = r * (
+                math.sin(self.env.robot_pose.theta + dtheta)
+                - math.sin(self.env.robot_pose.theta)
+            )
+        # step environment
+        self.env.robot_step(dx, dy, dtheta)
+
+        
 
     def robot_step_translational(self, x_vel: float, y_vel: float, ang_vel: float):
         """
@@ -59,8 +86,10 @@ class Robot:
             dy: change in y position
             d-theta: change in heading
         """
-        # TODO: fill in the function
-        pass
+        dx = x_vel * self.env.DT
+        dy -= y_vel * self.env.DT
+        dtheta = ang_vel * self.env.DT
+        self.env.robot_step(dx, dy, dtheta)
 
     def take_sensor_measurements(self):
         """
