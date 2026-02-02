@@ -4,6 +4,8 @@ A simulated robotic agent with teleoperation and sensing capabilities.
 The Robot class models the robotic agent that explores the world. The robot is remote-controlled by angular and linear velocity commands read from an external file. The robot can execute motor commands to move, and can sense both externally (GPS, landmarks, obstacles) and internally (odometry, IMU).
 """
 
+import random
+
 from environment import Environment
 from sensors import SensorInterface
 
@@ -24,9 +26,7 @@ class Robot:
         Args:
             env: the environment this robot is operating in
         """
-        # TODO: set the environment property to the parameter value
-        self.env = None
-        # TODO: initialize the sensors property as an empty list
+        self.env = env
         self.sensors = []
 
     def robot_step_differential(self, lin_vel: float, ang_vel: float):
