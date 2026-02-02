@@ -79,8 +79,17 @@ class Environment:
             dx: change in x position that should be executed
             dy: change in y position that should be executed
         """
-        # TODO: fill in the function
-        pass
+        if self.is_valid_position(Position(self.robot_pose.x + dx, self.robot_pose.y)):
+            x_new = self.robot_pose.x + dx
+        else:
+            x_new = self.robot_pose.x
+
+        if self.is_valid_position(Position(self.robot_pose.y + dy, self.robot_pose.x)):
+            y_new = self.robot_pose.y + dy
+        else:
+            y_new = self.robot_pose.y
+
+        return Position(x_new, y_new)
 
     def is_valid_position(self, position: Position):
         """
