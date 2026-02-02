@@ -27,7 +27,7 @@ class Robot:
             env: the environment this robot is operating in
         """
         self.env = env
-        self.sensors = [sensors.WheelEncoder, sensors.LandmarkPinger]
+        self.sensors = [sensors.WheelEncoder(self), sensors.LandmarkPinger(self)]
 
     def robot_step_differential(self, lin_vel: float, ang_vel: float):
         """
@@ -54,7 +54,7 @@ class Robot:
         # moving in straight line
         if abs(ang_vel) < 1e-6: #Note: move to config file?
             dx = lin_vel * self.env.DT * math.cos(self.env.robot_pose.theta)
-            dy = lin_vel * self.env.DT * math.cos(self.env.robot_pose.theta)
+            dy = lin_vel * self.env.DT * math.sin(self.env.robot_pose.theta)
             dtheta = 0
         else:
             r = lin_vel / ang_vel
@@ -85,7 +85,7 @@ class Robot:
             d-theta: change in heading
         """
         dx = x_vel * self.env.DT
-        dy -= y_vel * self.env.DT
+        dy = y_vel * self.env.DT
         dtheta = ang_vel * self.env.DT
         self.env.robot_step(dx, dy, dtheta)
 
@@ -93,9 +93,9 @@ class Robot:
         """
         Return noisy sensor readings of the environment at this timestep, including data from all sensors, in a table format.
         """
-        measurements = pd.DataFrame({"Time": {self.env.time}})
+        measurements = pd.DataFrame({"Time": [self.env.time]})
         for sensor in self.sensors:
-            if floating_mod_zero(self.env.time, self.sensor.interval):
+            if floating_mod_zero(self.env.time, sensor.interval):
                 measurements = pd.merge(
                     measurements,
                     sensor.sample(),
@@ -103,7 +103,7 @@ class Robot:
                     right_index=True
                 )
         measurements["CMD_LinearVelocity"] = [self.cmd_lin_vel]
-        measurements["CMD_AngularVelocity"] = [self.cmd_lin_vel]
+        measurements["CMD_AngularVelocity"] = [self.cmd_ang_vel]
 
         return measurements
 
