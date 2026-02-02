@@ -157,5 +157,10 @@ class Environment:
         """
         Return static information about the environment, including dimensions, timestep size, locations and dimensions of obstacles, and locations of landmarks.
         """
-        # TODO: fill in the function
-        pass
+        info = {
+            "Dimensions": self.DIMENSIONS.to_dict(),
+            "Timestep Size": self.DT,
+            "Obstacles": [obstacle.to_dict() for obstacle in self.OBSTACLES],
+            "Landmarks": [landmark.to_dict() for landmark in self.LANDMARKS],
+        }
+        return info
