@@ -7,6 +7,8 @@ Critically, the environment tracks the robot's state. In this case, the robot's 
 """
 
 from utils import Position, Pose, Bounds, Landmark, BearingRange
+import pandas as pd
+import math
 
 
 class Environment:
@@ -39,21 +41,13 @@ class Environment:
             landmarks: a list of landmarks
             robot_starting_pose: the initial position and heading of the robot
         """
-        # TODO: set the dimensions property to the parameter value
-        self.DIMENSIONS = None
-
-        # TODO: set the timestep size property to the parameter value
-        self.DT = None
-
-        # TODO: set the current time to zero
-        self.time = None
-
-        # TODO: set the obstacles and landmarks properties to the parameter lists
-        self.OBSTACLES = None
-        self.LANDMARKS = None
-
-        # TODO: set the robot pose property to the parameter value
-        self.robot_pose = None
+        self.DIMENSIONS = dimensions
+        self.DT = dt
+        self.time = 0
+        self.OBSTACLES = obstacles
+        self.LANDMARKS = landmarks
+        self.robot_pose = robot_starting_pose
+        self.PINGER_RANGE = 3.0
 
     def robot_step(self, dx: float, dy: float, dtheta: float):
         """
@@ -67,8 +61,13 @@ class Environment:
         Returns:
             Nothing, but update the robot_pose property at the end
         """
-        # TODO: fill in the function
-        pass
+        new_pos = self.is_valid_motion(dx, dy)
+
+        new_theta = self.robot_pose.theta + dtheta
+        new_theta = (new_theta + math.pi) % (2 * math.pi) - math.pi
+
+        self.time += round(self.DT, 3)
+        self.robot_pose = Pose(new_pos, new_theta)
 
     def is_valid_motion(self, dx: float, dy: float):
         """
@@ -82,8 +81,21 @@ class Environment:
             dx: change in x position that should be executed
             dy: change in y position that should be executed
         """
-        # TODO: fill in the function
-        pass
+        if self.is_valid_position(
+            Position(self.robot_pose.pos.x + dx, self.robot_pose.pos.y)
+        ):
+            x_new = self.robot_pose.pos.x + dx
+        else:
+            x_new = self.robot_pose.pos.x
+
+        if self.is_valid_position(
+            Position(self.robot_pose.pos.x, self.robot_pose.pos.y + dy)
+        ):
+            y_new = self.robot_pose.pos.y + dy
+        else:
+            y_new = self.robot_pose.pos.y
+
+        return Position(x_new, y_new)
 
     def is_valid_position(self, position: Position):
         """
@@ -95,33 +107,67 @@ class Environment:
         Returns:
             true if the position is valid and false otherwise
         """
-        # TODO: fill in the function
-        pass
+        if self.DIMENSIONS.within_bounds(position):
+            result = True
+            for obstacle in self.OBSTACLES:
+                result = result and not obstacle.within_bounds(position)
+            return result
+        return False
 
     def get_robot_pose(self):
         """
         Return the true robot pose.
         """
-        # TODO: fill in the function
-        pass
+        return self.robot_pose
 
-    def get_proximity_to_landmarks(self):
+    def get_proximity_to_landmarks(self) -> dict:
         """
         Return a list of the robot's true range and bearing to all landmarks.
         """
-        # TODO: fill in the function
-        pass
+        measurements = {}
+        for landmark in self.LANDMARKS:
+            x_diff = landmark.pos.x - self.robot_pose.pos.x
+            y_diff = landmark.pos.y - self.robot_pose.pos.y
+            distance = math.sqrt(x_diff**2 + y_diff**2)
+            bearing = math.atan2(y_diff, x_diff) - self.robot_pose.theta
+            bearing = (bearing + math.pi) % (2 * math.pi) - math.pi
+            measurements[landmark.id] = BearingRange(
+                landmark_id=landmark.id, bearing=bearing, range=distance
+            )
+        return measurements
 
     def take_state_snapshot(self):
         """
         Return true state information about this timestep, including time, robot position, and the robot's bearing/range to landmarks, in a table format.
         """
-        # TODO: fill in the function
-        pass
+        instrinsic_df = pd.DataFrame(
+            {
+                "Time": [self.time],
+                "RobotPose": [self.robot_pose],
+            }
+        )
+        landmark_dist = self.get_proximity_to_landmarks()
+        landmark_df = pd.DataFrame()
+        for id, landmark in landmark_dist.items():
+            landmark_df[id] = [landmark]
+
+        return pd.merge(
+            instrinsic_df,
+            landmark_df,
+            left_index=True,
+            right_index=True,
+        )
 
     def get_environment_info(self):
         """
         Return static information about the environment, including dimensions, timestep size, locations and dimensions of obstacles, and locations of landmarks.
         """
-        # TODO: fill in the function
-        pass
+        info = {
+            "Dimensions": self.DIMENSIONS.to_dict(),
+            "Timestep Size": self.DT,
+            "Obstacles": [obstacle.to_dict() for obstacle in self.OBSTACLES],
+            "Landmarks": [landmark.to_dict() for landmark in self.LANDMARKS],
+            "Pinger Range": self.PINGER_RANGE,
+            "Timestep": self.DT,
+        }
+        return info
