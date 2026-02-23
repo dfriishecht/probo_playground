@@ -14,8 +14,14 @@ import csv
 import pickle
 import numpy as np
 from pathlib import Path
+import argparse
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run simulator.")
+    parser.add_argument("--linear", action="store_true", help="Run with linear filter instead of extended Kalman filter.")
+    args = parser.parse_args()
+    LINEAR = args.linear
+
     # set up the environment
     dimensions = Bounds(0, 10, 0, 10)
     dt = 0.1
@@ -40,10 +46,9 @@ if __name__ == "__main__":
     )
 
     # set up the robot
-    robot = Robot(env)
+    robot = Robot(env, linear=LINEAR)
 
     # set up the (Extended) Kalman Filter
-    LINEAR = False
     if LINEAR:
         kf = KalmanFilter(
             dt,
@@ -68,7 +73,10 @@ if __name__ == "__main__":
 
     # set up input filepath and output filepaths
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    input_commands_filepath = os.path.join(script_dir, "../input/diff_example.csv")
+    if LINEAR:
+        input_commands_filepath = os.path.join(script_dir, "../input/translational_example.csv")
+    else:
+        input_commands_filepath = os.path.join(script_dir, "../input/diff_example.csv")
     output_ground_truth_filepath = os.path.join(
         script_dir, "../output/ground_truth.pkl"
     )
@@ -204,7 +212,7 @@ if __name__ == "__main__":
     pickle.dump(kalman_filter_history, open(output_kalman_filter_filepath, "wb"))
     print("Done Running Simulation...")
 
-    viz = Visualizer(Path(os.path.join(script_dir, "../output")))
+    viz = Visualizer(Path(os.path.join(script_dir, "../output")), linear=LINEAR)
     viz.draw_all()
 
     ANIMATE = False
