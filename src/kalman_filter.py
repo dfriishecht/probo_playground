@@ -10,6 +10,7 @@ u = [v_x, v_y, w]
 
 import numpy as np
 import random
+from utils import wrap_angle
 
 
 class KalmanFilter:
@@ -33,23 +34,17 @@ class KalmanFilter:
             dt: the length of each timestep, in seconds
             prior: the initial estimates for each state variable
         """
-        # TODO: set the timestep size to the given parameter
-        self.DT: float = None
+        self.DT: float = dt
 
-        # TODO: set the state vector to the given prior
-        self.x: np.ndarray = None
+        self.x: np.ndarray = np.array([[prior.pos.x, prior.pos.y, prior.theta]]).T
 
-        # TODO: set the process model to an identity matrix
-        self.P: np.ndarray = None
+        self.P: np.ndarray = np.eye(3)
 
-        # TODO: define the motion model
-        self.F: np.ndarray = None
+        self.F: np.ndarray = np.eye(3)
 
-        # TODO: define the control model
-        self.B: np.ndarray = None
+        self.B: np.ndarray = np.diag(np.array([self.DT, self.DT, self.DT]))
 
-        # TODO: define the process noise
-        self.Q: np.ndarray = None
+        self.Q: np.ndarray = self.get_Q()
 
     def predict(self, u: np.ndarray):
         """
@@ -61,12 +56,9 @@ class KalmanFilter:
         Args:
             u: the input control vector
         """
-        # TODO: update the state vector using the state transition matrix and the given control input
-        self.x = None
-
-        # TODO: update the process model by propagating it through the state transition matrix and adding noise
-        self.P = None
-
+        self.x = self.F @ self.x + self.B @ u
+        self.P = self.F @ self.P @ self.F.T + self.Q
+        self.x[2] = wrap_angle(self.x[2])
         return self.x, self.P
 
     def update(self, z, H, R):
@@ -85,21 +77,23 @@ class KalmanFilter:
             z: the given observation, AKA a measurement taken of the environment
             H: the measurement model, which relates the state space to the measurement space
             R: the measurement noise model (covariance)
+
+            H (2x3)
+            R (2x2)
+            P (3x3)
+            z (1x2)
+            R (2x2)
+            x (3x1)
         """
-        # TODO: calculate the total uncertainty in the system
-        S = None
+        S = H @ self.P @ H.T + R  # 2x2
 
-        # TODO: calculate the Kalman Gain, AKA the percentage of the total uncertainty that came from the estimate rather than the measurement
-        K = None
+        K = self.P @ H.T @ np.linalg.inv(S)  # 3x2
 
-        # TODO: calculate the residual, AKA the error between the observation and what we expected the observation to be given our estimated state vector
-        y = None
+        y = z.T - H @ self.x
 
-        # TODO: update the state vector
-        self.x = None
+        self.x = self.x + K @ y
 
-        # TODO: update the process model
-        self.P = None
+        self.P = self.P - K @ H @ self.P
 
         return self.x, self.P
 
@@ -107,24 +101,23 @@ class KalmanFilter:
         """
         Generate white noise to apply to the process model after each prediction.
         """
-        # TODO: explore different standard deviation values for this function!
         stdev = 0.1
         return np.array(
             [
                 [
-                    random.gauss(0, stdev),
-                    random.gauss(0, stdev),
-                    random.gauss(0, stdev),
-                ],
-                [
-                    random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
                     random.gauss(0, stdev),
                     random.gauss(0, stdev),
                 ],
                 [
                     random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
+                    random.gauss(0, stdev),
+                ],
+                [
                     random.gauss(0, stdev),
                     random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
                 ],
             ]
         )
