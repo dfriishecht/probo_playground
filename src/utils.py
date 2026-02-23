@@ -8,15 +8,31 @@ from dataclasses import dataclass
 import random
 import numpy as np
 
+NEAR_ZERO = 1e-6
 
-def wrap_angle(angle: float):
+SEED = random.randint(0, 1000000)
+random.seed(SEED)
+np.random.seed(SEED)
+
+
+def wrap_angle(angle):
     """
     Wrap a given angle to the range [-pi, pi]
     """
-    angle = angle % (2 * np.pi)  # force in range [0, 2 pi)
-    if angle > np.pi:  # move to [-pi, pi)
-        angle -= 2 * np.pi
+    angle = np.mod(angle, 2 * np.pi)
+
+    # Handle both scalar and array inputs
+    if isinstance(angle, np.ndarray):
+        angle[angle > np.pi] -= 2 * np.pi
+    else:
+        if angle > np.pi:
+            angle -= 2 * np.pi
     return angle
+
+
+def floating_mod_zero(n1: float, n2: float):
+    factor = n1 / n2
+    return abs(round(factor, 3) - float(round(factor))) < NEAR_ZERO
 
 
 @dataclass(unsafe_hash=True)
