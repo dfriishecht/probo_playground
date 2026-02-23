@@ -10,9 +10,11 @@ Proprioceptive sensors measure the robot's relationship to its past states. This
 
 from abc import ABC, abstractmethod
 from math import pi
-
+import math
 import numpy as np
-
+import pandas as pd
+import random
+from utils import BearingRange, Position
 import sympy
 from sympy.abc import x, y, k, j, theta
 from sympy import symbols, Matrix, Symbol, pprint
@@ -112,16 +114,58 @@ class WheelEncoder(SensorInterface):
             angular_noise_ratio: proportional noise for angular
         """
         super().__init__(name, robot, interval)
-        # TODO: save all noise constants as properties
-        self.LIN_NOISE = None  # m/s
-        self.ANG_NOISE = None  # rad/s
+        self.LIN_NOISE = lin_noise  # m/s
+        self.ANG_NOISE = ang_noise  # rad/s
+        self.LIN_NOISE_PROPORTION = 0.01
+        self.ANG_NOISE_PROPORTION = 0.1
 
     def sample(self):
         """
         Sample the robot's linear and angular velocity.
         """
-        # TODO: fill in the function
-        pass
+        if self.robot.linear:
+            last_x_vel = self.robot.real_x_vel
+            last_y_vel = self.robot.real_y_vel
+            last_ang_vel = self.robot.real_ang_vel
+
+            noisy_x_vel = random.gauss(
+                last_x_vel, self.LIN_NOISE + abs(last_x_vel) * self.LIN_NOISE_PROPORTION
+            )
+            noisy_y_vel = random.gauss(
+                last_y_vel, self.LIN_NOISE + abs(last_y_vel) * self.LIN_NOISE_PROPORTION
+            )
+            noisy_ang_vel = random.gauss(
+                last_ang_vel,
+                self.ANG_NOISE + abs(last_ang_vel) * self.ANG_NOISE_PROPORTION,
+            )
+
+            return pd.DataFrame(
+                {
+                    f"{self.name}_XVelocity": [noisy_x_vel],
+                    f"{self.name}_YVelocity": [noisy_y_vel],
+                    f"{self.name}_AngularVelocity": [noisy_ang_vel],
+                }
+            )
+
+        else:
+            last_lin_vel = self.robot.real_lin_vel
+            last_ang_vel = self.robot.real_ang_vel
+
+            noisy_lin_vel = random.gauss(
+                last_lin_vel,
+                self.LIN_NOISE + abs(last_lin_vel) * self.LIN_NOISE_PROPORTION,
+            )
+            noisy_ang_vel = random.gauss(
+                last_ang_vel,
+                self.ANG_NOISE + abs(last_ang_vel) * self.ANG_NOISE_PROPORTION,
+            )
+
+            return pd.DataFrame(
+                {
+                    f"{self.name}_LinearVelocity": [noisy_lin_vel],
+                    f"{self.name}_AngularVelocity": [noisy_ang_vel],
+                }
+            )
 
 
 class LandmarkPinger(SensorInterface):
@@ -143,8 +187,8 @@ class LandmarkPinger(SensorInterface):
         robot,
         name="landmark_pinger",
         interval=1.0,
-        range_noise=0.5,
-        range_prop_noise=0.05,
+        range_noise=0.05,
+        range_prop_noise=0.01,
         bearing_noise=pi / 6,
         max_range=10.0,
     ):
@@ -157,27 +201,25 @@ class LandmarkPinger(SensorInterface):
             interval (float): period between measurements
         """
         super().__init__(name, robot, interval)
-        # TODO: save max range and all noise constants as properties
-        self.MAX_RANGE = None  # meters
-        self.RANGE_NOISE = None  # meters
-        self.RANGE_PROP_NOISE = None
-        self.BEARING_NOISE = None  # radians
+        self.MAX_RANGE = max_range  # meters
+        self.RANGE_NOISE = range_noise  # meters
+        self.RANGE_PROP_NOISE = range_prop_noise
+        self.BEARING_NOISE = bearing_noise  # radians
 
         # TODO: define the nonlinear measurement model symbolically
         self.h_x: Matrix = Matrix(
             [
-                [None],  # calculation of r (range)
-                [None],  # calculation of phi (bearing)
+                [sympy.sqrt((x - k) ** 2 + (y - j) ** 2)],  # calculation of r (range)
+                [sympy.atan2(y - j, x - k)],  # calculation of phi (bearing)
             ]
         )
 
         # TODO: define the Jacobian of h(x) symbolically
-        self.H: Matrix = None
+        self.H: Matrix = self.h_x.jacobian([x, y, theta])
 
         self.subs: dict[Symbol, float] = {
             x: 0.0,
             y: 0.0,
-            theta: 0.0,
             k: 0.0,
             j: 0.0,
         }
@@ -186,8 +228,23 @@ class LandmarkPinger(SensorInterface):
         """
         Reports noisy measurements of the bearing and range between the robot and all nearby landmarks.
         """
-        # TODO: fill in the function
-        pass
+        true_distances = self.robot.env.get_proximity_to_landmarks()
+        noisy_landmarks = pd.DataFrame()
+        for id, landmark in true_distances.items():
+            gt_bearing = landmark
+            if gt_bearing.range <= self.MAX_RANGE:
+                bearing_noisy = BearingRange(
+                    id,
+                    random.gauss(gt_bearing.bearing, self.BEARING_NOISE),
+                    random.gauss(
+                        gt_bearing.range,
+                        self.RANGE_NOISE + self.RANGE_PROP_NOISE * gt_bearing.range,
+                    ),
+                )
+            else:
+                bearing_noisy = BearingRange(id, math.inf, math.inf)
+            noisy_landmarks[f"{self.name}_{id}"] = [bearing_noisy]
+        return noisy_landmarks
 
     def R(self, z):
         """
@@ -200,57 +257,50 @@ class LandmarkPinger(SensorInterface):
             Sensor noise model for pinger measurement
         """
         bearing_stdev = self.BEARING_NOISE
-        range_stdev = self.RANGE_NOISE + z[0] * self.RANGE_PROP_NOISE
+        range_stdev = (
+            self.RANGE_NOISE + float(np.array(z[0]).item()) * self.RANGE_PROP_NOISE
+        )
         return np.diag([range_stdev, bearing_stdev]) ** 2
 
-    def H_eval(self, x, lm_id):
+    def H_eval(self, x_state, lm_id):
         """
         Evaluate the Jacobian of h(x) at x, which reshapes a state vector to be in the observation space. This matrix is used to turn a state prediction into an observation prediction for a specific landmark.
 
         Args:
-            x: the current state vector, to linearize with respect to
+            x_state: the current state vector, to linearize with respect to
             lm_id: the ID of the landmark that we are predicting an observation of
         """
-        # TODO: find the x and y position of the given landmark
-        lm_x = None
-        lm_y = None
+        lm_x = self.robot.env.LANDMARKS[lm_id].pos.x
+        lm_y = self.robot.env.LANDMARKS[lm_id].pos.y
 
-        # TODO: set the value of each symbolic substitution to the actual numerical value that was passed in
-        self.subs[x] = None
-        self.subs[y] = None
-        self.subs[theta] = None
-        self.subs[j] = None  # note: we use j for landmark x position
-        self.subs[k] = None  # note: we use k for landmark y position
+        self.subs[x] = float(np.array(x_state[0]).item())
+        self.subs[y] = float(np.array(x_state[1]).item())
+        self.subs[theta] = float(np.array(x_state[2]).item())
+        self.subs[j] = lm_x  # note: we use j for landmark x position
+        self.subs[k] = lm_y  # note: we use k for landmark y position
 
-        # TODO: evaluate the Jacobian at the subs values and convert it to a numpy array
-        H_eval = None
+        H_eval = np.array(self.H.subs(self.subs)).astype(float)
 
-        # return
         return H_eval
 
-    def y(self, z, x, lm_id):
+    def y(self, z, x_state, lm_id):
         """
         Calculate the residual between an observation x and a predicted observation derived from a predicted state. The predicted observation is in reference to a specified landmark.
         """
-        # TODO: find the x and y position of the given landmark
-        lm_x = None
-        lm_y = None
+        lm_x = self.robot.env.LANDMARKS[lm_id].pos.x
+        lm_y = self.robot.env.LANDMARKS[lm_id].pos.y
 
-        # TODO: set the value of each symbolic substitution to the actual numerical value that was passed in
-        self.subs[x] = None
-        self.subs[y] = None
-        self.subs[theta] = None
-        self.subs[j] = None  # note: we use j for landmark x position
-        self.subs[k] = None  # note: we use k for landmark y position
+        self.subs[x] = float(np.array(x_state[0]).item())
+        self.subs[y] = float(np.array(x_state[1]).item())
+        self.subs[theta] = float(np.array(x_state[2]).item())
+        self.subs[j] = lm_x  # note: we use j for landmark x position
+        self.subs[k] = lm_y  # note: we use k for landmark y position
 
-        # TODO: evaluate the measurement model at the subs values and convert it to a numpy array
-        hx_eval = None
+        hx_eval = np.array(self.h_x.subs(self.subs)).astype(float)
 
-        # TODO: calculate the residual
-        y = None
+        residual = z - hx_eval
 
-        # return
-        return y
+        return residual
 
 
 class GPS(SensorInterface):
@@ -269,10 +319,10 @@ class GPS(SensorInterface):
     def __init__(
         self,
         robot,
-        name,
-        interval,
-        x_noise,
-        y_noise,
+        name="gps",
+        interval=1.0,
+        x_noise=0.5,
+        y_noise=0.5,
     ):
         """
         Initialize an instance of the GPS class.
@@ -288,15 +338,18 @@ class GPS(SensorInterface):
         self.X_NOISE = x_noise
         self.Y_NOISE = y_noise
 
-        # TODO: fill in the measurement model
-        self.H = None
+        # Convert x pos, y pos, theta
+        self.H = np.array([[1.0, 0, 0], [0, 1, 0]])
 
-        # TODO: fill in the noise model
-        self.R = None
+        # For now, assume independent noise between GPS x and y measurement
+        self.R = np.diag([self.X_NOISE**2, self.Y_NOISE**2])
 
     def sample(self):
         """
         Take a noisy GPS measurement of robot position.
         """
-        # TODO: fill in the function
-        pass
+        gt_pose = self.robot.env.get_robot_pose()
+        x_noisy = random.gauss(gt_pose.pos.x, self.X_NOISE)
+        y_noisy = random.gauss(gt_pose.pos.y, self.Y_NOISE)
+
+        return pd.DataFrame({self.name: [Position(x_noisy, y_noisy)]})
