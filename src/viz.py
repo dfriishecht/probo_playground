@@ -16,11 +16,13 @@ class Visualizer:
     def __init__(
         self,
         output_path: Path,
+        linear: bool = False,
     ):
         """
         Initialize the visualizer class.
         """
         self.output_path = output_path
+        self.linear = linear
         gt_log_path = output_path / "ground_truth.pkl"
         sensor_log_path = output_path / "sensor_data.pkl"
         env_info_path = output_path / "env_data.pkl"
@@ -133,7 +135,7 @@ class Visualizer:
         y = pose.pos.y
         theta = pose.theta
         poses = []
-        linear = False
+        linear = self.linear
         dt = self.env_info["Timestep"]
 
         for row in self.sensor_log.itertuples():

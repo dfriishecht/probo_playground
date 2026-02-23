@@ -22,12 +22,13 @@ class Robot:
         sensors: list of all robot sensors
     """
 
-    def __init__(self, env: Environment):
+    def __init__(self, env: Environment, linear: bool = False):
         """
         Initialize an instance of the Robot class.
 
         Args:
             env: the environment this robot is operating in
+            linear: whether the robot operates using linear (translational) dynamics
         """
         self.env = env
         self.sensors = [
@@ -35,7 +36,7 @@ class Robot:
             sensors.LandmarkPinger(self),
             sensors.GPS(self),
         ]
-        self.linear = False
+        self.linear = linear
 
         if self.linear:
             self.real_x_vel = 0
