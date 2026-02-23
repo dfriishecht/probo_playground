@@ -101,7 +101,7 @@ class KalmanFilter:
         """
         Generate white noise to apply to the process model after each prediction.
         """
-        stdev = 0.1
+        stdev = 0.01
         return np.array(
             [
                 [
