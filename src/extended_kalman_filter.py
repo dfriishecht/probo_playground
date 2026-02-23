@@ -36,28 +36,23 @@ class ExtendedKalmanFilter:
             dt: the length of each timestep, in seconds
             prior: the initial estimates for each state variable-
         """
-        # TODO: set the timestep size to the given parameter
-        self.DT: float = None
+        self.DT: float = dt
+        self.x_state: np.ndarray = np.array(
+            [[prior.pos.x, prior.pos.y, prior.theta]]
+        ).flatten()
+        self.P: np.ndarray = np.eye(3)
 
-        # TODO: set the state vector to the given prior
-        self.x: np.ndarray = None
-
-        # TODO: set the process model to an identity matrix
-        self.P: np.ndarray = None
-
-        # TODO: define the nonlinear state transition model
         self.f_xu: Matrix = Matrix(
             [
-                [None],  # calculation of x
-                [None],  # calculation of y
-                [None],  # calculation of theta
+                [x + v * sympy.cos(theta) * self.DT],  # calculation of x
+                [y + v * sympy.sin(theta) * self.DT],  # calculation of y
+                [theta + w * self.DT],  # calculation of theta
             ]
         )
 
-        # TODO: define the Jacobian of the motion model symbolically
-        self.F: Matrix = None
+        self.F: Matrix = self.f_xu.jacobian([x, y, theta])
 
-        # dictionary that maps Sympy symbols to numerical values. we will use these to substitute values into our symbolic matrices!
+        # dictionary that maps Sympy symbols to numerical values.
         self.subs: dict[Symbol, float] = {
             x: self.x_state[0],
             y: self.x_state[1],
@@ -78,26 +73,22 @@ class ExtendedKalmanFilter:
         Args:
             u: the input control vector
         """
-        # TODO: set the value of each symbolic substitution to the actual numerical value being tracked by the EKF
-        self.subs[x] = None
-        self.subs[y] = None
-        self.subs[theta] = None
-        self.subs[v] = None
-        self.subs[w] = None
+        self.subs[x] = float(np.array(self.x_state[0]).item())
+        self.subs[y] = float(np.array(self.x_state[1]).item())
+        self.subs[theta] = float(np.array(self.x_state[2]).item())
+        self.subs[v] = float(np.array(u[0]).item())
+        self.subs[w] = float(np.array(u[1]).item())
 
-        # TODO: evaluate the nonlinear motion model f(x,u) at the subsitution values
-        fxu_eval = None
+        fxu_eval = np.array(self.f_xu.subs(self.subs)).astype(float).flatten()
 
-        # TODO: evaluate the Jacobian matrix F at the substitution values
-        F_eval = None
+        F_eval = np.array(self.F.subs(self.subs)).astype(float)
 
-        # TODO: calculate the next state prediction
-        self.x = None
+        self.x_state = fxu_eval
 
-        # TODO: calculate the next covariance prediction
-        self.P = None
+        Q = self.get_Q()
+        self.P = F_eval @ self.P @ F_eval.T + Q
 
-        # return state vector and state covariance
+        self.x_state[2] = wrap_angle(self.x_state[2])
         return self.x_state, self.P
 
     def update(
@@ -125,46 +116,42 @@ class ExtendedKalmanFilter:
             R: the measurement noise model (covariance)
             y: the residual, which is the error between the measured observation and the observation expected by the predicted state
         """
-        # TODO: calculate the total uncertainty in the system
-        S = None
+        S = H @ self.P @ H.T + R
 
-        # TODO: calculate the Kalman Gain
-        K = None
+        K = self.P @ H.T @ np.linalg.inv(S)
 
         if y is None:
-            y = z - H @ self.x_state
+            y = z.T - H @ self.x_state
 
-        # TODO: update state vector
-        self.x_state = None
+        self.x_state = (self.x_state.reshape(3, 1) + K @ y.reshape(2, 1)).flatten()
 
-        # TODO: update process model
-        self.P = None
+        self.P = self.P - K @ H @ self.P
 
-        # return state vector and process model
+        self.x_state[2] = wrap_angle(self.x_state[2])
+
         return self.x_state, self.P
 
     def get_Q(self):
         """
         Generate white noise to apply to the process model after each prediction.
         """
-        # TODO: explore different standard deviation values for this function!
         stdev = 0.1
         return np.array(
             [
                 [
-                    random.gauss(0, stdev),
-                    random.gauss(0, stdev),
-                    random.gauss(0, stdev),
-                ],
-                [
-                    random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
                     random.gauss(0, stdev),
                     random.gauss(0, stdev),
                 ],
                 [
                     random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
+                    random.gauss(0, stdev),
+                ],
+                [
                     random.gauss(0, stdev),
                     random.gauss(0, stdev),
+                    abs(random.gauss(0, stdev)),
                 ],
             ]
         )
