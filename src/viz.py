@@ -16,19 +16,24 @@ class Visualizer:
     def __init__(
         self,
         output_path: Path,
+        linear: bool = False,
     ):
         """
         Initialize the visualizer class.
         """
         self.output_path = output_path
-        gt_log_path = output_path / "groundtruth_log.pkl"
-        sensor_log_path = output_path / "sensor_log.pkl"
-        env_info_path = output_path / "env_info.pkl"
-        sensor_info_path = output_path / "sensor_info.pkl"
+        self.linear = linear
+        gt_log_path = output_path / "ground_truth.pkl"
+        sensor_log_path = output_path / "sensor_data.pkl"
+        env_info_path = output_path / "env_data.pkl"
+        sensor_info_path = output_path / "sensor_data.pkl"
+        kalman_log_path = output_path / "kalman_data.pkl"
         with open(sensor_log_path, "rb") as f:
             self.sensor_log = pickle.load(f)
         with open(gt_log_path, "rb") as f:
             self.gt_log = pickle.load(f)
+        with open(kalman_log_path, "rb") as f:
+            self.kalman_log = pickle.load(f)
         # unpack into dataframes
         with open(env_info_path, "rb") as f:
             self.env_info = pickle.load(f)
@@ -130,15 +135,21 @@ class Visualizer:
         y = pose.pos.y
         theta = pose.theta
         poses = []
+        linear = self.linear
         dt = self.env_info["Timestep"]
 
         for row in self.sensor_log.itertuples():
-            v = row.Odometry_LinearVelocity
-            w = row.Odometry_AngularVelocity
+            if linear:
+                x += row.wheel_encoder_XVelocity * dt
+                y += row.wheel_encoder_YVelocity * dt
+                w = row.wheel_encoder_AngularVelocity
+            else:
+                v = row.wheel_encoder_LinearVelocity
+                w = row.wheel_encoder_AngularVelocity
+                x += np.cos(theta) * v * dt
+                y += np.sin(theta) * v * dt
 
             # Dead reckoning integration
-            x += np.cos(theta) * v * dt
-            y += np.sin(theta) * v * dt
             theta += w * dt
 
             # Wrap theta to [-pi, pi]
@@ -171,6 +182,33 @@ class Visualizer:
 
         return pd.DataFrame(poses)
 
+    def poses_from_kalman(self):
+        """
+        Given a DataFrame of Kalman Filter data with the following columns:
+        x | P
+        Output a DataFrame of Kalman Filter pose data with the following columns:
+        Time | x | y | theta
+        """
+        poses = []
+        for idx, row in enumerate(self.kalman_log.itertuples()):
+            state = np.array(row.x).flatten()
+            # Match time with ground truth log if possible
+            if idx < len(self.gt_log):
+                time = float(self.gt_log.iloc[idx].Time)
+            else:
+                time = float(idx * self.env_info["Timestep"])
+
+            poses.append(
+                {
+                    "Time": time,
+                    "x": float(state[0]),
+                    "y": float(state[1]),
+                    "theta": float(state[2]),
+                }
+            )
+
+        return pd.DataFrame(poses)
+
     def poses_from_gps(self):
         """
         Given a DataFrame of GPS data with the following columns:
@@ -183,12 +221,13 @@ class Visualizer:
         poses = []
 
         for row in self.sensor_log.itertuples():
+            # print(row)
             # Check if GPS data exists and is a Position object
-            if hasattr(row, "GPS") and row.GPS is not None:
+            if hasattr(row, "gps") and row.gps is not None:
                 try:
                     # Access Position dataclass fields
-                    x = row.GPS.x
-                    y = row.GPS.y
+                    x = row.gps.x
+                    y = row.gps.y
 
                     poses.append(
                         {
@@ -311,6 +350,11 @@ class Visualizer:
             "orange",
             scatter=True,
         )
+        self.plot_single_trajectory(
+            "Kalman Filter",
+            self.poses_from_kalman(),
+            "purple",
+        )
         plt.savefig(self.output_path / "dataset_viz.png")
         print("Finished plotting at path: ")
         print(self.output_path / "dataset_viz.png")
@@ -334,9 +378,10 @@ class Visualizer:
         gt_poses = self.poses_from_gt()
         odom_poses = self.poses_from_odom()
         gps_poses = self.poses_from_gps()
+        kalman_poses = self.poses_from_kalman()
 
         # Find the maximum number of frames needed
-        max_frames = max(len(gt_poses), len(odom_poses))
+        max_frames = max(len(gt_poses), len(odom_poses), len(kalman_poses))
 
         # Apply speedup by sampling fewer frames
         frame_skip = int(speedup)
@@ -349,7 +394,6 @@ class Visualizer:
         # Initialize the plot
         fig, ax = self.plot_env()
 
-        # Initialize line objects for each trajectory
         (gt_line,) = ax.plot(
             [], [], "-", color="green", linewidth=2, label="Ground Truth", alpha=0.8
         )
@@ -357,6 +401,9 @@ class Visualizer:
             [], [], "-", color="red", linewidth=2, label="Dead Reckoning", alpha=0.8
         )
         (gps_line,) = ax.plot([], [], "-", color="orange", linewidth=2, alpha=0.8)
+        (kalman_line,) = ax.plot(
+            [], [], "-", color="purple", linewidth=2, label="Kalman Filter", alpha=0.8
+        )
         gps_scatter = ax.scatter(
             [],
             [],
@@ -372,6 +419,7 @@ class Visualizer:
         gt_end = ax.plot([], [], "s", color="green", markersize=10, alpha=0)[0]
         odom_end = ax.plot([], [], "s", color="red", markersize=10, alpha=0)[0]
         gps_end = ax.plot([], [], "s", color="orange", markersize=10, alpha=0)[0]
+        kalman_end = ax.plot([], [], "s", color="purple", markersize=10, alpha=0)[0]
 
         # Add time display
         time_text = ax.text(
@@ -391,18 +439,22 @@ class Visualizer:
             gt_line.set_data([], [])
             odom_line.set_data([], [])
             gps_line.set_data([], [])
+            kalman_line.set_data([], [])
             gps_scatter.set_offsets(np.empty((0, 2)))
             gt_end.set_data([], [])
             odom_end.set_data([], [])
             gps_end.set_data([], [])
+            kalman_end.set_data([], [])
             time_text.set_text("")
             return (
                 gt_line,
                 odom_line,
                 gps_line,
+                kalman_line,
                 gps_scatter,
                 gt_end,
                 odom_end,
+                kalman_end,
                 time_text,
             )
 
@@ -439,6 +491,18 @@ class Visualizer:
                     )
                     odom_end.set_alpha(0.8)
 
+            # Update Kalman filter
+            if actual_frame < len(kalman_poses):
+                kalman_data = kalman_poses.iloc[: actual_frame + 1]
+                kalman_line.set_data(kalman_data["x"], kalman_data["y"])
+
+                # Show end marker on final frames
+                if is_final_frame:
+                    kalman_end.set_data(
+                        [kalman_data.iloc[-1]["x"]], [kalman_data.iloc[-1]["y"]]
+                    )
+                    kalman_end.set_alpha(0.8)
+
             # Update GPS measurements synchronized by time
             # Find GPS measurements up to the current time
             if actual_frame < len(gt_poses):
@@ -448,7 +512,17 @@ class Visualizer:
                     gps_line.set_data(gps_up_to_now["x"], gps_up_to_now["y"])
                     gps_scatter.set_offsets(gps_up_to_now[["x", "y"]].values)
 
-            return gt_line, odom_line, gps_scatter, gt_end, odom_end, time_text
+            return (
+                gt_line,
+                odom_line,
+                kalman_line,
+                gps_line,
+                gps_scatter,
+                gt_end,
+                odom_end,
+                kalman_end,
+                time_text,
+            )
 
         # Create animation
         anim = FuncAnimation(
