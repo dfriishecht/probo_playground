@@ -33,7 +33,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Run the Code Locally
-You can run the simulator in linear or non-linear model. By default, in non-linear mode and uses an Extended Kalman Filter.
+You can run the simulator in either linear or non-linear mode. By default, it runs in non-linear mode and uses an Extended Kalman Filter.
 
 To run with the Extended Kalman Filter:
 ```bash
@@ -45,14 +45,14 @@ To run with the standard Kalman Filter:
 python3 src/main.py --linear
 ```
 
-The resulting trajectory plots will be saved to the `output/` directory.
+The resulting trajectory plot will be saved to the `output/` directory.
 
 ## Results
 
 ### Linear Model
 ![Linear Model](img/linear.png)
 
-Overall, we see that the filter performs reasonablu well on the linear model, and is able to track the ground truth state reasonably well. However, we can also see that the filter's use of GPS data is contributing added noise to the state estimate, which makes the results differ a bit from ideal
+Overall, we see that the filter performs reasonably well on the linear model, and is able to track the ground truth state reasonably well. However, we can also see that the filter's use of GPS data is contributing added noise to the state estimate, which makes the results differ a bit from ideal
 
 While a mono-sensor system can work well in a simplified environment like this, it is likely not a robust solution for the real-world, especially in environments where GPS quality is poor or suffers from high variance.
 
