@@ -52,7 +52,7 @@ The resulting trajectory plot will be saved to the `output/` directory.
 ### Linear Model
 ![Linear Model](img/linear.png)
 
-Overall, we see that the filter performs reasonablu well on the linear model, and is able to track the ground truth state reasonably well. However, we can also see that the filter's use of GPS data is contributing added noise to the state estimate, which makes the results differ a bit from ideal
+Overall, we see that the filter performs reasonably well on the linear model, and is able to track the ground truth state reasonably well. However, we can also see that the filter's use of GPS data is contributing added noise to the state estimate, which makes the results differ a bit from ideal
 
 While a mono-sensor system can work well in a simplified environment like this, it is likely not a robust solution for the real-world, especially in environments where GPS quality is poor or suffers from high variance.
 
