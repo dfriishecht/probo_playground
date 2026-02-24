@@ -33,7 +33,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Run the Code Locally
-You can run the simulator in linear or non-linear model. By default, in non-linear mode and uses an Extended Kalman Filter.
+You can run the simulator in either linear or non-linear mode. By default, it runs in non-linear mode and uses an Extended Kalman Filter.
 
 To run with the Extended Kalman Filter:
 ```bash
@@ -45,7 +45,7 @@ To run with the standard Kalman Filter:
 python3 src/main.py --linear
 ```
 
-The resulting trajectory plots will be saved to the `output/` directory.
+The resulting trajectory plot will be saved to the `output/` directory.
 
 ## Results
 
